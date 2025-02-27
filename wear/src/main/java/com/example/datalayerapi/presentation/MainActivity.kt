@@ -30,6 +30,10 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     private var lastZDirection = 0  // 이전 Z축 방향 (1: 올리기, -1: 내리기)
     private var reps by mutableStateOf(0)  // 반복 횟수
     private var isRunning by mutableStateOf(false)  // 타이머 상태
+    private var lastChangeTime: Long = 0  // 마지막 변화 시간
+    // + 저역 필터링, 자이로 센서 사용
+
+    private val minTimeBetweenReps = 500L  // 최소 시간 설정 (밀리초 단위)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,16 +63,20 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
             val z = it.values[2]  // Z축 값 가져오기
             val threshold = 2.5f  // 임계값 설정
+            val currentTime = System.currentTimeMillis()
 
-            // Z축 변화량이 임계값보다 크면 동작 시작
-            if (Math.abs(z - lastZ) > threshold) {
-                // Z축의 방향 전환을 감지
-                if (z > lastZ && lastZDirection != 1) {  // 올리기 (양의 가속도)
-                    lastZDirection = 1
-                } else if (z < lastZ && lastZDirection != -1) {  // 내리기 (음의 가속도)
+            // 최소 시간 간격을 체크하여, 너무 빠른 변화는 무시
+            if (Math.abs(z - lastZ) > threshold && (currentTime - lastChangeTime >= minTimeBetweenReps)) {
+                if (z < lastZ && lastZDirection != -1) {
+                    // 내려가기 감지
                     lastZDirection = -1
-                    reps++  // 내림 동작 후 카운트 증가
-                    Log.d("MainActivity", "반복 횟수 증가: $reps")
+                    Log.d("MainActivity", "내려가기 감지")
+                } else if (z > lastZ && lastZDirection == -1) {
+                    // 올라오기 감지 → 스쿼트 1회 카운트
+                    lastZDirection = 1
+                    reps++
+                    Log.d("MainActivity", "스쿼트 횟수 증가: $reps")
+                    lastChangeTime = currentTime  // 마지막 변화 시간 업데이트
                 }
             }
             lastZ = z
