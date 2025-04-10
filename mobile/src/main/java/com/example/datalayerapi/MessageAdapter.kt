@@ -12,8 +12,9 @@ class MessageAdapter(private val messages: MutableList<WorkoutData>) :
 
     inner class MessageViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val timestampTextView: TextView = itemView.findViewById(R.id.timestampTextView)
-        val durationTextView: TextView = itemView.findViewById(R.id.durationTextView)
-        val repsTextView: TextView = itemView.findViewById(R.id.repsTextView)
+        val xTextView: TextView = itemView.findViewById(R.id.xValueTextView)
+        val yTextView: TextView = itemView.findViewById(R.id.yValueTextView)
+        val zTextView: TextView = itemView.findViewById(R.id.zValueTextView)
         val deleteButton: ImageView = itemView.findViewById(R.id.deleteButton)
     }
 
@@ -25,10 +26,10 @@ class MessageAdapter(private val messages: MutableList<WorkoutData>) :
 
     override fun onBindViewHolder(holder: MessageViewHolder, position: Int) {
         val messageData = messages[position]
-
-        holder.timestampTextView.text = messageData.timestamp.chunked(10).joinToString("\n")
-        holder.durationTextView.text = "시간: ${messageData.duration}초"
-        holder.repsTextView.text = "반복: ${messageData.reps}회"
+        holder.timestampTextView.text = messageData.timestamp.toString()
+        holder.xTextView.text = "X: ${messageData.x}"
+        holder.yTextView.text = "Y: ${messageData.y}"
+        holder.zTextView.text = "Z: ${messageData.z}"
 
         holder.deleteButton.setOnClickListener {
             messages.removeAt(position)
@@ -39,4 +40,3 @@ class MessageAdapter(private val messages: MutableList<WorkoutData>) :
 
     override fun getItemCount(): Int = messages.size
 }
-

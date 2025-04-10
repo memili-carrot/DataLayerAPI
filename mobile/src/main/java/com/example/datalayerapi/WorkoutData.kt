@@ -1,40 +1,34 @@
 package com.example.datalayerapi
 
-import org.json.JSONObject
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-
 data class WorkoutData(
-    val reps: Int,
-    val timestamp: String,
-    val duration: Long
+    val x: Float,
+    val y: Float,
+    val z: Float,
+    val timestamp: Long
 ) {
     fun toJson(): String {
-        return JSONObject().apply {
-            put("reps", reps)
+        return org.json.JSONObject().apply {
+            put("x", x)
+            put("y", y)
+            put("z", z)
             put("timestamp", timestamp)
-            put("duration", duration)
         }.toString()
     }
 
     companion object {
         fun fromJson(json: String): WorkoutData? {
             return try {
-                val jsonObject = JSONObject(json)
+                val jsonObject = org.json.JSONObject(json)
                 WorkoutData(
-                    reps = jsonObject.getInt("reps"),
-                    timestamp = jsonObject.getString("timestamp"),
-                    duration = jsonObject.getLong("duration")
+                    x = jsonObject.getDouble("x").toFloat(),
+                    y = jsonObject.getDouble("y").toFloat(),
+                    z = jsonObject.getDouble("z").toFloat(),
+                    timestamp = jsonObject.getLong("timestamp")
                 )
             } catch (e: Exception) {
                 e.printStackTrace()
                 null
             }
-        }
-
-        fun getCurrentTimestamp(): String {
-            return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
         }
     }
 }

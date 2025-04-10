@@ -2,23 +2,23 @@
 <project version="4">
   <component name="deploymentTargetSelector">
     <selectionStates>
-      <SelectionState runConfigName="mobile">
+      <SelectionState runConfigName="wear">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-02-27T01:02:38.307226400Z">
+        <DropdownSelection timestamp="2025-04-10T03:21:42.421417700Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\gary8\.android\avd\Wear_OS_Small_Round_API_33.avd" />
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=RF9N509NZ7E" />
             </handle>
           </Target>
         </DropdownSelection>
         <DialogSelection />
       </SelectionState>
-      <SelectionState runConfigName="wear">
+      <SelectionState runConfigName="mobile">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-02-27T01:09:10.604567300Z">
+        <DropdownSelection timestamp="2025-04-10T03:11:47.070167800Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="PhysicalDevice" identifier="serial=RFAR743K8XR" />
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=RF9N509NZ7E" />
             </handle>
           </Target>
         </DropdownSelection>
