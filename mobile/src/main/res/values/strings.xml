@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">DataLayerAPI</string>
+    <string name="time_label">Time</string>
+    <string name="x_label">X: 0.0</string>
+    <string name="y_label">Y: 0.0</string>
+    <string name="z_label">Z: 0.0</string>
 </resources>

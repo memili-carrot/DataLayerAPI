@@ -3,40 +3,32 @@ package com.example.datalayerapi
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
-class MessageAdapter(private val messages: MutableList<WorkoutData>) :
+class MessageAdapter(private val messages: List<WorkoutData>) :
     RecyclerView.Adapter<MessageAdapter.MessageViewHolder>() {
 
-    inner class MessageViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        val timestampTextView: TextView = itemView.findViewById(R.id.timestampTextView)
-        val xTextView: TextView = itemView.findViewById(R.id.xValueTextView)
-        val yTextView: TextView = itemView.findViewById(R.id.yValueTextView)
-        val zTextView: TextView = itemView.findViewById(R.id.zValueTextView)
-        val deleteButton: ImageView = itemView.findViewById(R.id.deleteButton)
+    class MessageViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val xView: TextView = itemView.findViewById(R.id.xValueTextView)
+        val yView: TextView = itemView.findViewById(R.id.yValueTextView)
+        val zView: TextView = itemView.findViewById(R.id.zValueTextView)
+        val timestampView: TextView = itemView.findViewById(R.id.timestampTextView)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageViewHolder {
         val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.message_item, parent, false)
+            .inflate(R.layout.item_sensor_data, parent, false)
         return MessageViewHolder(view)
     }
 
     override fun onBindViewHolder(holder: MessageViewHolder, position: Int) {
-        val messageData = messages[position]
-        holder.timestampTextView.text = messageData.timestamp.toString()
-        holder.xTextView.text = "X: ${messageData.x}"
-        holder.yTextView.text = "Y: ${messageData.y}"
-        holder.zTextView.text = "Z: ${messageData.z}"
-
-        holder.deleteButton.setOnClickListener {
-            messages.removeAt(position)
-            notifyItemRemoved(position)
-            notifyItemRangeChanged(position, messages.size)
-        }
+        val item = messages[position]
+        holder.xView.text = "X: %.3f".format(item.x)
+        holder.yView.text = "Y: %.3f".format(item.y)
+        holder.zView.text = "Z: %.3f".format(item.z)
+        holder.timestampView.text = "Time: ${item.timestamp}"
     }
 
-    override fun getItemCount(): Int = messages.size
+    override fun getItemCount() = messages.size
 }

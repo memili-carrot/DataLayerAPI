@@ -9,16 +9,38 @@ import com.google.android.gms.wearable.WearableListenerService
 class PhoneListenerService : WearableListenerService() {
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
-        if (messageEvent.path == "/accelerometer") {
-            val jsonMessage = String(messageEvent.data)
-            Log.d(TAG, "Received Accelerometer Data: $jsonMessage")
+        val path = messageEvent.path
+        val jsonMessage = String(messageEvent.data)
+        Log.d(TAG, "Received message on path: $path")
 
-            val intent = Intent("com.example.datalayerapi.ACCELEROMETER_RECEIVED").apply {
-                putExtra("JsonData", jsonMessage)
+        when (path) {
+            "/accelerometer" -> {
+                Log.d(TAG, "Received Accelerometer Data: $jsonMessage")
+                val intent = Intent("com.example.datalayerapi.ACCELEROMETER_RECEIVED").apply {
+                    putExtra("JsonData", jsonMessage)
+                }
+                LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
             }
-            LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
-        } else {
-            Log.w(TAG, "Unknown path received: ${messageEvent.path}")
+
+            "/gyroscope" -> {
+                Log.d(TAG, "Received Gyroscope Data: $jsonMessage")
+                val intent = Intent("com.example.datalayerapi.GYROSCOPE_RECEIVED").apply {
+                    putExtra("JsonData", jsonMessage)
+                }
+                LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
+            }
+
+            "/light" -> {
+                Log.d(TAG, "Received Light Sensor Data: $jsonMessage")
+                val intent = Intent("com.example.datalayerapi.LIGHT_RECEIVED").apply {
+                    putExtra("JsonData", jsonMessage)
+                }
+                LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
+            }
+
+            else -> {
+                Log.w(TAG, "Unknown path received: $path")
+            }
         }
     }
 

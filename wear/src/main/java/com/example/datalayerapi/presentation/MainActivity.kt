@@ -1,9 +1,6 @@
 package com.example.datalayerapi.presentation
 
-import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
-import android.hardware.SensorManager
+import android.hardware.*
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -22,79 +19,109 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 class MainActivity : ComponentActivity(), SensorEventListener {
-    private var sensorManager: SensorManager? = null
-    private var accelerometer: Sensor? = null
-    private var latestX by mutableStateOf(0f)
-    private var latestY by mutableStateOf(0f)
-    private var latestZ by mutableStateOf(0f)
+    private lateinit var sensorManager: SensorManager
+    private var currentSensor: Sensor? = null
+    private val buffer = SensorDataBuffer()
+
+    private var selectedSensorType by mutableStateOf(SensorType.ACCELEROMETER)
+    private var latestX by mutableFloatStateOf(0f)
+    private var latestY by mutableFloatStateOf(0f)
+    private var latestZ by mutableFloatStateOf(0f)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
-        accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
         setContent {
-            AccelerometerApp()
+            SensorSelectorUI()
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        accelerometer?.let {
-            sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+    @Composable
+    fun SensorSelectorUI() {
+        Column(
+            Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            var expanded by remember { mutableStateOf(false) }
+            Box {
+                Button(onClick = { expanded = true }) {
+                    Text("Sensor: ${selectedSensorType.label}")
+                }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    SensorType.values().forEach { type ->
+                        DropdownMenuItem(
+                            text = { Text(type.label) },
+                            onClick = {
+                                expanded = false
+                                switchSensor(type)
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            Text("X: $latestX")
+            Text("Y: $latestY")
+            Text("Z: $latestZ")
+            Spacer(Modifier.height(16.dp))
+
+            Button(onClick = { sendSensorData() }) {
+                Text("Send Last 10")
+            }
         }
     }
 
-    override fun onPause() {
-        super.onPause()
-        sensorManager?.unregisterListener(this)
+    private fun switchSensor(type: SensorType) {
+        sensorManager.unregisterListener(this)
+        selectedSensorType = type
+        currentSensor = sensorManager.getDefaultSensor(type.androidType)
+        currentSensor?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        }
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
         event?.let {
-            latestX = it.values[0]
-            latestY = it.values[1]
-            latestZ = it.values[2]
+            latestX = it.values.getOrElse(0) { 0f }
+            latestY = it.values.getOrElse(1) { 0f }
+            latestZ = it.values.getOrElse(2) { 0f }
+
+            buffer.add(SensorData(latestX, latestY, latestZ, System.currentTimeMillis()))
         }
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
-    @Composable
-    fun AccelerometerApp() {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text("X: $latestX")
-            Text("Y: $latestY")
-            Text("Z: $latestZ")
-
-            Spacer(Modifier.height(16.dp))
-
-            Button(onClick = { sendAccelerometerData(latestX, latestY, latestZ) }) {
-                Text("Send")
+    private fun sendSensorData() {
+        val jsonArray = buffer.getAll().map {
+            JSONObject().apply {
+                put("x", it.x)
+                put("y", it.y)
+                put("z", it.z)
+                put("timestamp", it.timestamp)
             }
         }
-    }
 
-    private fun sendAccelerometerData(x: Float, y: Float, z: Float) {
-        val json = JSONObject().apply {
-            put("x", x)
-            put("y", y)
-            put("z", z)
-            put("timestamp", System.currentTimeMillis())
-        }.toString()
+        val jsonList = JSONObject().apply {
+            put("sensor", selectedSensorType.label)
+            put("data", jsonArray)
+        }
 
         lifecycleScope.launch(Dispatchers.IO) {
             val nodeId = getNodes().firstOrNull()
             nodeId?.let {
                 Wearable.getMessageClient(applicationContext).sendMessage(
-                    it, "/accelerometer", json.toByteArray()
+                    it, "/${selectedSensorType.name.lowercase()}", jsonList.toString().toByteArray()
                 ).apply {
-                    addOnSuccessListener { Log.d("MainActivity", "Accelerometer data sent: $json") }
-                    addOnFailureListener { Log.d("MainActivity", "Failed to send accelerometer data") }
+                    addOnSuccessListener {
+                        Log.d("MainActivity", "✅ Sent sensor data:\n${jsonList.toString(2)}")
+                    }
+                    addOnFailureListener {
+                        Log.d("MainActivity", "❌ Failed to send sensor data: ${it.message}")
+                    }
                 }
             }
         }
@@ -102,5 +129,10 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     private fun getNodes(): Collection<String> {
         return Tasks.await(Wearable.getNodeClient(this).connectedNodes).map { it.id }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        sensorManager.unregisterListener(this)
     }
 }
