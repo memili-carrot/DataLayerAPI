@@ -8,7 +8,7 @@ import android.os.Looper
 class SensorCollector(
     private val context: Context,
     private val sensorType: Int,
-    private val intervalMs: Int,
+    private val sensorDelay: Int,
     private val durationSec: Int,
     private val onComplete: (List<SensorData>) -> Unit
 ) : SensorEventListener {
@@ -20,7 +20,7 @@ class SensorCollector(
     fun start() {
         sensor = sensorManager.getDefaultSensor(sensorType)
         sensor?.let {
-            sensorManager.registerListener(this, it, intervalMs * 1000)
+            sensorManager.registerListener(this, it, sensorDelay)
             Handler(Looper.getMainLooper()).postDelayed({
                 stop()
             }, durationSec * 1000L)

@@ -11,7 +11,6 @@ import org.json.JSONObject
 import android.hardware.Sensor
 import kotlinx.coroutines.tasks.await
 
-
 class ConfigListenerService : WearableListenerService() {
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
@@ -22,7 +21,7 @@ class ConfigListenerService : WearableListenerService() {
             try {
                 val obj = JSONObject(configJson)
                 val sensorName = obj.getString("sensor")
-                val intervalMs = obj.getInt("intervalMs")
+                val sensorDelay = obj.getInt("sensorDelay")
                 val durationSec = obj.getInt("durationSec")
 
                 val sensorType = when (sensorName) {
@@ -31,14 +30,14 @@ class ConfigListenerService : WearableListenerService() {
                     "Light" -> Sensor.TYPE_LIGHT
                     else -> {
                         Log.w(TAG, "Unsupported sensor: $sensorName")
-                        return  // ❗ 여기서만 return
+                        return
                     }
                 }
 
                 val collector = SensorCollector(
                     context = this,
                     sensorType = sensorType,
-                    intervalMs = intervalMs,
+                    sensorDelay = sensorDelay,
                     durationSec = durationSec
                 ) { result ->
                     sendSensorData(sensorName, result)
@@ -64,7 +63,7 @@ class ConfigListenerService : WearableListenerService() {
 
         val json = JSONObject().apply {
             put("sensor", sensorName)
-            put("data", dataArray.toString()) // 그대로 문자열로
+            put("data", dataArray.toString())
         }.toString()
 
         CoroutineScope(Dispatchers.IO).launch {
