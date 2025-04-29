@@ -18,14 +18,9 @@ class SensorDataBuffer {
                 put("y", data.y)
                 put("z", data.z)
                 put("timestamp", data.timestamp)
+                put("sensor", data.sensorName)
             })
         }
         return array
     }
-
-    fun clear() {
-        buffer.clear()
-    }
-
-    fun getAll(): List<SensorData> = buffer
 }

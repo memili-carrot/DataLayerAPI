@@ -12,9 +12,9 @@ import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import org.json.JSONArray
 import org.json.JSONObject
-import kotlinx.coroutines.tasks.await
 
 class SensorCollector(
     private val sensorManager: SensorManager,
@@ -27,6 +27,7 @@ class SensorCollector(
     private val buffer = mutableListOf<SensorData>()
     private var isCollecting = false
     private val handler = Handler(Looper.getMainLooper())
+    private val sensorName: String = SensorType.values().find { it.androidType == sensor.type }?.label ?: "Unknown"
 
     fun start() {
         if (!isCollecting) {
@@ -62,10 +63,10 @@ class SensorCollector(
                             put("y", data.y)
                             put("z", data.z)
                             put("timestamp", data.timestamp)
+                            put("sensor", data.sensorName)
                         })
                     }
 
-                    val sensorName = SensorType.values().find { it.androidType == sensor.type }?.label ?: "Unknown"
                     val jsonObject = JSONObject().apply {
                         put(sensorName.lowercase(), jsonArray)
                     }
@@ -92,7 +93,7 @@ class SensorCollector(
             val z = it.values.getOrNull(2) ?: 0f
             val timestamp = System.currentTimeMillis()
 
-            buffer.add(SensorData(x, y, z, timestamp))
+            buffer.add(SensorData(x, y, z, timestamp, sensorName))  // ✅ sensorName 포함
         }
     }
 

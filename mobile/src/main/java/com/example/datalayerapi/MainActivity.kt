@@ -1,10 +1,12 @@
 package com.example.datalayerapi
 
 import android.content.BroadcastReceiver
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.*
+import android.provider.MediaStore
 import android.util.Log
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
@@ -15,13 +17,16 @@ import com.google.android.gms.tasks.Tasks
 import com.google.android.gms.wearable.Wearable
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var sensorConfigRecyclerView: RecyclerView
-    private lateinit var messageRecyclerView: RecyclerView  // ✨ 추가
+    private lateinit var sensorDataRecyclerView: RecyclerView  // ✅ 추가
     private lateinit var addSensorButton: Button
     private lateinit var sendButton: Button
+    private lateinit var saveButton: Button
     private lateinit var statusTextView: TextView
     private lateinit var sensorNameTextView: TextView
     private lateinit var messageAdapter: MessageAdapter
@@ -39,29 +44,23 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         sensorConfigRecyclerView = findViewById(R.id.sensorConfigRecyclerView)
-        messageRecyclerView = findViewById(R.id.messageRecyclerView)  // ✨ 추가
-
+        sensorDataRecyclerView = findViewById(R.id.messageRecyclerView)
         addSensorButton = findViewById(R.id.addSensorButton)
         sendButton = findViewById(R.id.sendButton)
+        saveButton = findViewById(R.id.saveDataButton)
         statusTextView = findViewById(R.id.statusTextView)
         sensorNameTextView = findViewById(R.id.sensorNameTextView)
         vibrator = getSystemService(Vibrator::class.java)
 
         updatePhoneStatus("대기 중")
 
-        sensorConfigAdapter = SensorConfigAdapter(
-            this,
-            sensorOptions,
-            delayOptions,
-            configList
-        )
+        sensorConfigAdapter = SensorConfigAdapter(this, sensorOptions, delayOptions, configList)
         sensorConfigRecyclerView.layoutManager = LinearLayoutManager(this)
         sensorConfigRecyclerView.adapter = sensorConfigAdapter
 
-        // ✨ 메시지 표시용 RecyclerView 세팅
         messageAdapter = MessageAdapter(messageList)
-        messageRecyclerView.layoutManager = LinearLayoutManager(this)
-        messageRecyclerView.adapter = messageAdapter
+        sensorDataRecyclerView.layoutManager = LinearLayoutManager(this)
+        sensorDataRecyclerView.adapter = messageAdapter  // ✅ 여기서 연결
 
         addSensorButton.setOnClickListener {
             configList.add(SensorConfigItem("", "", 5))
@@ -69,8 +68,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         sendButton.setOnClickListener {
-            currentFocus?.clearFocus() // ✨ 포커스 해제
-
             val configJson = JSONArray()
             configList.forEach { config ->
                 if (config.sensorName.isNotEmpty() && config.delayOption.isNotEmpty() && config.durationSec > 0) {
@@ -82,9 +79,12 @@ class MainActivity : AppCompatActivity() {
                     configJson.put(obj)
                 }
             }
-
             sendConfigToWatch(configJson)
             updatePhoneStatus("센서 설정 전송 완료")
+        }
+
+        saveButton.setOnClickListener {
+            saveSensorDataToDownloadsFolder()
         }
 
         val filter = IntentFilter().apply {
@@ -104,34 +104,23 @@ class MainActivity : AppCompatActivity() {
 
         Thread {
             try {
-                val nodes = Tasks.await(Wearable.getNodeClient(this).connectedNodes)
-                if (nodes.isEmpty()) {
-                    Log.e("MainActivity", "❌ 연결된 워치 노드 없음")
-                    runOnUiThread {
-                        Toast.makeText(this, "연결된 워치 없음", Toast.LENGTH_SHORT).show()
-                    }
-                    return@Thread
+                val node = Tasks.await(Wearable.getNodeClient(this).connectedNodes).firstOrNull()
+                node?.let {
+                    Wearable.getMessageClient(this)
+                        .sendMessage(it.id, "/config_multi", payload.toString().toByteArray())
+                        .addOnSuccessListener {
+                            runOnUiThread {
+                                Toast.makeText(this, "설정 전송 완료", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        .addOnFailureListener { e ->
+                            runOnUiThread {
+                                Toast.makeText(this, "전송 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                 }
-
-                val node = nodes.first()
-                Log.d("MainActivity", "✅ 연결된 워치 노드: ${node.displayName}")
-
-                Wearable.getMessageClient(this)
-                    .sendMessage(node.id, "/config_multi", payload.toString().toByteArray())
-                    .addOnSuccessListener {
-                        runOnUiThread {
-                            Toast.makeText(this, "설정 전송 완료", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                    .addOnFailureListener { e ->
-                        Log.e("MainActivity", "❌ 설정 전송 실패: ${e.message}")
-                        runOnUiThread {
-                            Toast.makeText(this, "전송 실패: ${e.message}", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-
             } catch (e: Exception) {
-                Log.e("MainActivity", "❌ 전송 시도 중 에러: ${e.message}", e)
+                Log.e("MainActivity", "전송 중 오류: ${e.message}", e)
             }
         }.start()
     }
@@ -158,7 +147,7 @@ class MainActivity : AppCompatActivity() {
                             val data = WorkoutData.fromJson(item.toString())
                             data?.let {
                                 messageList.add(it)
-                                messageAdapter.notifyItemInserted(messageList.size - 1)
+                                messageAdapter.notifyItemInserted(messageList.size - 1)  // ✅ 수신 후 리스트 갱신
                             }
                         }
                     }
@@ -169,6 +158,58 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun saveSensorDataToDownloadsFolder() {
+        val jsonArray = JSONArray()
+        messageList.forEach { data ->
+            val obj = JSONObject().apply {
+                put("timestamp", data.timestamp)
+                put("sensor", data.sensor)
+                put("x", data.x)
+                put("y", data.y)
+                put("z", data.z)
+            }
+            jsonArray.put(obj)
+        }
+
+        val fileName = "sensor_data_${getCurrentTimestamp()}.json"
+        val fileContent = jsonArray.toString(4).toByteArray()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val contentValues = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                put(MediaStore.Downloads.MIME_TYPE, "application/json")
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                put(MediaStore.Downloads.IS_PENDING, 1)
+            }
+
+            val resolver = contentResolver
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+
+            uri?.let {
+                resolver.openOutputStream(it)?.use { outputStream ->
+                    outputStream.write(fileContent)
+                }
+                contentValues.clear()
+                contentValues.put(MediaStore.Downloads.IS_PENDING, 0)
+                resolver.update(uri, contentValues, null, null)
+            }
+        } else {
+            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val file = File(downloadsDir, fileName)
+            FileOutputStream(file).use {
+                it.write(fileContent)
+            }
+        }
+
+        runOnUiThread {
+            Toast.makeText(this, "✅ 다운로드 폴더에 저장 완료: $fileName", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun getCurrentTimestamp(): String {
+        return System.currentTimeMillis().toString()
     }
 
     override fun onDestroy() {

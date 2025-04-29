@@ -135,7 +135,15 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 }
 
                 // 버퍼 추가
-                bufferMap[type]?.add(SensorData(x, y, z, System.currentTimeMillis()))
+                bufferMap[type]?.add(
+                    SensorData(
+                        x,
+                        y,
+                        z,
+                        System.currentTimeMillis(),
+                        type.label  // ✅ 센서 이름 추가
+                    )
+                )
             }
         }
     }
