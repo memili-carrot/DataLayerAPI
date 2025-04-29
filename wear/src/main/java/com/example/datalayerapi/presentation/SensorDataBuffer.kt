@@ -1,18 +1,31 @@
 package com.example.datalayerapi.presentation
 
-class SensorDataBuffer(private val maxSize: Int = 10) {
+import org.json.JSONArray
+import org.json.JSONObject
+
+class SensorDataBuffer {
     private val buffer = mutableListOf<SensorData>()
 
     fun add(data: SensorData) {
-        if (buffer.size >= maxSize) {
-            buffer.removeAt(0) // 가장 오래된 데이터 제거
-        }
         buffer.add(data)
     }
 
-    fun getAll(): List<SensorData> = buffer.toList()
+    fun toJsonArray(): JSONArray {
+        val array = JSONArray()
+        buffer.forEach { data ->
+            array.put(JSONObject().apply {
+                put("x", data.x)
+                put("y", data.y)
+                put("z", data.z)
+                put("timestamp", data.timestamp)
+            })
+        }
+        return array
+    }
 
     fun clear() {
         buffer.clear()
     }
+
+    fun getAll(): List<SensorData> = buffer
 }

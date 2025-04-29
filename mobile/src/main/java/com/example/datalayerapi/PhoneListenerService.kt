@@ -14,34 +14,20 @@ class PhoneListenerService : WearableListenerService() {
         Log.d(TAG, "Received message on path: $path")
 
         when (path) {
-            "/accelerometer" -> {
-                Log.d(TAG, "Received Accelerometer Data: $jsonMessage")
-                val intent = Intent("com.example.datalayerapi.ACCELEROMETER_RECEIVED").apply {
-                    putExtra("JsonData", jsonMessage)
-                }
-                LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
-            }
-
-            "/gyroscope" -> {
-                Log.d(TAG, "Received Gyroscope Data: $jsonMessage")
-                val intent = Intent("com.example.datalayerapi.GYROSCOPE_RECEIVED").apply {
-                    putExtra("JsonData", jsonMessage)
-                }
-                LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
-            }
-
-            "/light" -> {
-                Log.d(TAG, "Received Light Sensor Data: $jsonMessage")
-                val intent = Intent("com.example.datalayerapi.LIGHT_RECEIVED").apply {
-                    putExtra("JsonData", jsonMessage)
-                }
-                LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
-            }
-
-            else -> {
-                Log.w(TAG, "Unknown path received: $path")
-            }
+            "/accelerometer" -> broadcast("com.example.datalayerapi.ACCELEROMETER_RECEIVED", jsonMessage)
+            "/gyroscope" -> broadcast("com.example.datalayerapi.GYROSCOPE_RECEIVED", jsonMessage)
+            "/light" -> broadcast("com.example.datalayerapi.LIGHT_RECEIVED", jsonMessage)
+            "/magnetic" -> broadcast("com.example.datalayerapi.MAGNETIC_RECEIVED", jsonMessage)
+            "/gravity" -> broadcast("com.example.datalayerapi.GRAVITY_RECEIVED", jsonMessage)
+            else -> Log.w(TAG, "Unknown path received: $path")
         }
+    }
+
+    private fun broadcast(action: String, message: String) {
+        val intent = Intent(action).apply {
+            putExtra("JsonData", message)
+        }
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
     }
 
     companion object {

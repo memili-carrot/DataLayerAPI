@@ -1,78 +1,73 @@
 package com.example.datalayerapi.presentation
 
+import android.content.Intent
+import android.hardware.Sensor
+import android.hardware.SensorManager
 import android.util.Log
 import com.google.android.gms.wearable.MessageEvent
-import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import org.json.JSONObject
-import android.hardware.Sensor
 import kotlinx.coroutines.tasks.await
+import org.json.JSONArray
+import org.json.JSONObject
 
 class ConfigListenerService : WearableListenerService() {
 
+    private lateinit var sensorManager: SensorManager
+    private val activeCollectors = mutableListOf<SensorCollector>()
+
+    override fun onCreate() {
+        super.onCreate()
+        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
+    }
+
     override fun onMessageReceived(messageEvent: MessageEvent) {
-        if (messageEvent.path == "/config") {
+        Log.d(TAG, "📥 Received message: ${messageEvent.path}")
+
+        if (messageEvent.path == "/config_multi") {
             val configJson = String(messageEvent.data)
             Log.d(TAG, "📥 Config received: $configJson")
 
             try {
                 val obj = JSONObject(configJson)
-                val sensorName = obj.getString("sensor")
-                val sensorDelay = obj.getInt("sensorDelay")
-                val durationSec = obj.getInt("durationSec")
+                val sensorsArray = obj.getJSONArray("sensors")
 
-                val sensorType = when (sensorName) {
-                    "Accelerometer" -> Sensor.TYPE_ACCELEROMETER
-                    "Gyroscope" -> Sensor.TYPE_GYROSCOPE
-                    "Light" -> Sensor.TYPE_LIGHT
-                    else -> {
-                        Log.w(TAG, "Unsupported sensor: $sensorName")
-                        return
+                // ✅ 수정된 부분: 각각의 센서 설정 읽기
+                for (i in 0 until sensorsArray.length()) {
+                    val item = sensorsArray.getJSONObject(i)
+                    val sensorName = item.getString("sensor")
+                    val delayLabel = item.getString("delay")
+                    val durationSec = item.getInt("durationSec")
+
+                    val sensorDelay = when (delayLabel.uppercase()) {
+                        "FASTEST" -> SensorManager.SENSOR_DELAY_FASTEST
+                        "GAME" -> SensorManager.SENSOR_DELAY_GAME
+                        "UI" -> SensorManager.SENSOR_DELAY_UI
+                        "NORMAL" -> SensorManager.SENSOR_DELAY_NORMAL
+                        else -> SensorManager.SENSOR_DELAY_NORMAL
+                    }
+
+                    val sensorType = SensorType.fromLabel(sensorName)?.androidType
+                    if (sensorType != null) {
+                        val sensor = sensorManager.getDefaultSensor(sensorType)
+                        if (sensor != null) {
+                            val collector = SensorCollector(sensorManager, sensor, sensorDelay, durationSec, applicationContext)
+                            collector.start()
+                            activeCollectors.add(collector)
+                            Log.d(TAG, "✅ Registered sensor: $sensorName ($delayLabel, $durationSec sec)")
+                        } else {
+                            Log.w(TAG, "⚠️ Sensor not found: $sensorName")
+                        }
+                    } else {
+                        Log.w(TAG, "⚠️ Unknown sensor type: $sensorName")
                     }
                 }
 
-                val collector = SensorCollector(
-                    context = this,
-                    sensorType = sensorType,
-                    sensorDelay = sensorDelay,
-                    durationSec = durationSec
-                ) { result ->
-                    sendSensorData(sensorName, result)
-                }
-
-                collector.start()
-
             } catch (e: Exception) {
-                Log.e(TAG, "❌ Failed to parse config: ${e.message}")
+                Log.e(TAG, "❌ Failed to parse config_multi: ${e.message}", e)
             }
-        }
-    }
-
-    private fun sendSensorData(sensorName: String, data: List<SensorData>) {
-        val dataArray = data.map {
-            JSONObject().apply {
-                put("x", it.x)
-                put("y", it.y)
-                put("z", it.z)
-                put("timestamp", it.timestamp)
-            }
-        }
-
-        val json = JSONObject().apply {
-            put("sensor", sensorName)
-            put("data", dataArray.toString())
-        }.toString()
-
-        CoroutineScope(Dispatchers.IO).launch {
-            val nodes = Wearable.getNodeClient(this@ConfigListenerService).connectedNodes.await()
-            val nodeId = nodes.firstOrNull()?.id ?: return@launch
-            val path = "/${sensorName.lowercase()}"
-            Wearable.getMessageClient(applicationContext).sendMessage(nodeId, path, json.toByteArray())
-                .addOnSuccessListener { Log.d(TAG, "Sent $sensorName data to phone") }
-                .addOnFailureListener { Log.e(TAG, "Send failed: ${it.message}") }
         }
     }
 

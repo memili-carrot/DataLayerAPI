@@ -4,7 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.os.Bundle
+import android.os.*
 import android.util.Log
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
@@ -15,136 +15,164 @@ import com.google.android.gms.tasks.Tasks
 import com.google.android.gms.wearable.Wearable
 import org.json.JSONArray
 import org.json.JSONObject
-import android.hardware.SensorManager
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var sensorSpinner: Spinner
-    private lateinit var durationEditText: EditText
-    private lateinit var delaySpinner: Spinner
+    private lateinit var sensorConfigRecyclerView: RecyclerView
+    private lateinit var messageRecyclerView: RecyclerView  // ✨ 추가
+    private lateinit var addSensorButton: Button
     private lateinit var sendButton: Button
+    private lateinit var statusTextView: TextView
     private lateinit var sensorNameTextView: TextView
-
-    private lateinit var recyclerView: RecyclerView
     private lateinit var messageAdapter: MessageAdapter
     private val messageList = mutableListOf<WorkoutData>()
+    private val configList = mutableListOf<SensorConfigItem>()
+    private lateinit var sensorConfigAdapter: SensorConfigAdapter
+    private lateinit var vibrator: Vibrator
+    private var phoneStatus: String = "대기 중"
 
-    private val sensorTypes = listOf("Accelerometer", "Gyroscope", "Light")
     private val delayOptions = listOf("FASTEST", "GAME", "UI", "NORMAL")
+    private val sensorOptions = listOf("Accelerometer", "Gyroscope", "Light", "Magnetic", "Gravity")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        sensorSpinner = findViewById(R.id.sensorSpinner)
-        durationEditText = findViewById(R.id.durationEditText)
-        delaySpinner = findViewById(R.id.delaySpinner)
+        sensorConfigRecyclerView = findViewById(R.id.sensorConfigRecyclerView)
+        messageRecyclerView = findViewById(R.id.messageRecyclerView)  // ✨ 추가
+
+        addSensorButton = findViewById(R.id.addSensorButton)
         sendButton = findViewById(R.id.sendButton)
+        statusTextView = findViewById(R.id.statusTextView)
         sensorNameTextView = findViewById(R.id.sensorNameTextView)
+        vibrator = getSystemService(Vibrator::class.java)
 
-        recyclerView = findViewById(R.id.messageRecyclerView)
-        recyclerView.layoutManager = LinearLayoutManager(this)
+        updatePhoneStatus("대기 중")
+
+        sensorConfigAdapter = SensorConfigAdapter(
+            this,
+            sensorOptions,
+            delayOptions,
+            configList
+        )
+        sensorConfigRecyclerView.layoutManager = LinearLayoutManager(this)
+        sensorConfigRecyclerView.adapter = sensorConfigAdapter
+
+        // ✨ 메시지 표시용 RecyclerView 세팅
         messageAdapter = MessageAdapter(messageList)
-        recyclerView.adapter = messageAdapter
+        messageRecyclerView.layoutManager = LinearLayoutManager(this)
+        messageRecyclerView.adapter = messageAdapter
 
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, sensorTypes)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        sensorSpinner.adapter = adapter
-
-        val delayAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, delayOptions)
-        delayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        delaySpinner.adapter = delayAdapter
+        addSensorButton.setOnClickListener {
+            configList.add(SensorConfigItem("", "", 5))
+            sensorConfigAdapter.notifyItemInserted(configList.size - 1)
+        }
 
         sendButton.setOnClickListener {
-            val sensor = sensorSpinner.selectedItem.toString()
-            val duration = durationEditText.text.toString().toIntOrNull() ?: 5
-            val delayLabel = delaySpinner.selectedItem.toString()
+            currentFocus?.clearFocus() // ✨ 포커스 해제
 
-            // ❗ 수정: delayLabel을 숫자(SensorManager 상수)로 변환
-            val sensorDelay = when (delayLabel) {
-                "FASTEST" -> SensorManager.SENSOR_DELAY_FASTEST
-                "GAME" -> SensorManager.SENSOR_DELAY_GAME
-                "UI" -> SensorManager.SENSOR_DELAY_UI
-                "NORMAL" -> SensorManager.SENSOR_DELAY_NORMAL
-                else -> SensorManager.SENSOR_DELAY_NORMAL
+            val configJson = JSONArray()
+            configList.forEach { config ->
+                if (config.sensorName.isNotEmpty() && config.delayOption.isNotEmpty() && config.durationSec > 0) {
+                    val obj = JSONObject().apply {
+                        put("sensor", config.sensorName)
+                        put("delay", config.delayOption)
+                        put("durationSec", config.durationSec)
+                    }
+                    configJson.put(obj)
+                }
             }
 
-            sendConfigToWatch(sensor, duration, sensorDelay)
+            sendConfigToWatch(configJson)
+            updatePhoneStatus("센서 설정 전송 완료")
         }
 
         val filter = IntentFilter().apply {
-            addAction("com.example.datalayerapi.GYROSCOPE_RECEIVED")
             addAction("com.example.datalayerapi.ACCELEROMETER_RECEIVED")
+            addAction("com.example.datalayerapi.GYROSCOPE_RECEIVED")
             addAction("com.example.datalayerapi.LIGHT_RECEIVED")
+            addAction("com.example.datalayerapi.MAGNETIC_RECEIVED")
+            addAction("com.example.datalayerapi.GRAVITY_RECEIVED")
         }
-        LocalBroadcastManager.getInstance(this).registerReceiver(gyroReceiver, filter)
+        LocalBroadcastManager.getInstance(this).registerReceiver(sensorReceiver, filter)
     }
 
-    // ❗ sendConfigToWatch 함수 수정
-    private fun sendConfigToWatch(sensor: String, duration: Int, sensorDelay: Int) {
-        val configJson = JSONObject().apply {
-            put("sensor", sensor)
-            put("durationSec", duration)
-            put("sensorDelay", sensorDelay) // 숫자형 전송
+    private fun sendConfigToWatch(configArray: JSONArray) {
+        val payload = JSONObject().apply {
+            put("sensors", configArray)
         }
 
         Thread {
             try {
-                val node = Tasks.await(Wearable.getNodeClient(this).connectedNodes).firstOrNull()
-                node?.let {
-                    Wearable.getMessageClient(this)
-                        .sendMessage(it.id, "/config", configJson.toString().toByteArray())
-                        .addOnSuccessListener {
-                            runOnUiThread {
-                                Toast.makeText(this, "설정 전송 완료", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                        .addOnFailureListener {
-                            runOnUiThread {
-                                Toast.makeText(this, "전송 실패: ${it.message}", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                } ?: run {
-                    Log.w("MainActivity", "No connected node found to send config")
+                val nodes = Tasks.await(Wearable.getNodeClient(this).connectedNodes)
+                if (nodes.isEmpty()) {
+                    Log.e("MainActivity", "❌ 연결된 워치 노드 없음")
+                    runOnUiThread {
+                        Toast.makeText(this, "연결된 워치 없음", Toast.LENGTH_SHORT).show()
+                    }
+                    return@Thread
                 }
+
+                val node = nodes.first()
+                Log.d("MainActivity", "✅ 연결된 워치 노드: ${node.displayName}")
+
+                Wearable.getMessageClient(this)
+                    .sendMessage(node.id, "/config_multi", payload.toString().toByteArray())
+                    .addOnSuccessListener {
+                        runOnUiThread {
+                            Toast.makeText(this, "설정 전송 완료", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("MainActivity", "❌ 설정 전송 실패: ${e.message}")
+                        runOnUiThread {
+                            Toast.makeText(this, "전송 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+
             } catch (e: Exception) {
-                Log.e("MainActivity", "Exception during sendConfigToWatch: ${e.message}", e)
+                Log.e("MainActivity", "❌ 전송 시도 중 에러: ${e.message}", e)
             }
         }.start()
     }
 
-    private val gyroReceiver = object : BroadcastReceiver() {
+    private fun updatePhoneStatus(status: String) {
+        phoneStatus = status
+        statusTextView.text = "상태: $phoneStatus"
+        if (vibrator.hasVibrator()) {
+            vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
+        }
+    }
+
+    private val sensorReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            val action = intent?.action
             intent?.getStringExtra("JsonData")?.let { json ->
-                Log.d("MainActivity", "📥 Received action: $action, data: $json")
                 try {
                     val jsonObj = JSONObject(json)
-                    val sensorName = jsonObj.getString("sensor")
-                    sensorNameTextView.text = "센서: $sensorName"
-
-                    val dataStr = jsonObj.getString("data")
-                    val dataArray = JSONArray(dataStr)
-                    for (i in 0 until dataArray.length()) {
-                        val item = dataArray.getJSONObject(i)
-                        val data = WorkoutData.fromJson(item.toString())
-                        if (data != null) {
-                            Log.d("MainActivity", "✅ Parsed data: $data")
-                            messageList.add(data)
-                            messageAdapter.notifyItemInserted(messageList.size - 1)
-                        } else {
-                            Log.w("MainActivity", "⚠️ Failed to parse item: $item")
+                    val sensorKeys = jsonObj.keys()
+                    while (sensorKeys.hasNext()) {
+                        val key = sensorKeys.next()
+                        val dataArray = jsonObj.getJSONArray(key)
+                        for (i in 0 until dataArray.length()) {
+                            val item = dataArray.getJSONObject(i)
+                            val data = WorkoutData.fromJson(item.toString())
+                            data?.let {
+                                messageList.add(it)
+                                messageAdapter.notifyItemInserted(messageList.size - 1)
+                            }
                         }
                     }
+                    sensorNameTextView.text = "📦 수신 완료"
+                    updatePhoneStatus("수신 완료")
                 } catch (e: Exception) {
-                    Log.e("MainActivity", "❌ Error parsing received data: ${e.message}", e)
+                    Log.e("MainActivity", "수신 파싱 오류: ${e.message}", e)
                 }
             }
         }
     }
 
     override fun onDestroy() {
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(gyroReceiver)
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(sensorReceiver)
         super.onDestroy()
     }
 }

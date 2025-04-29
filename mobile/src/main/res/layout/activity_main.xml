@@ -1,61 +1,73 @@
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="16dp">
 
-    <!-- 센서 전송 UI -->
-
-    <Spinner
-        android:id="@+id/sensorSpinner"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
-
-    <EditText
-        android:id="@+id/durationEditText"
+    <LinearLayout
+        android:id="@+id/sensorLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="수집 시간 (초)"
-        android:inputType="number" />
+        android:orientation="vertical">
 
-    <!-- ⭐ 딜레이 선택 안내 텍스트 추가 -->
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="수집 주기 (Delay)"
-        android:textSize="14sp"
-        android:layout_marginTop="8dp"
-        android:padding="4dp"/>
+        <!-- 센서 추가 버튼 -->
+        <Button
+            android:id="@+id/addSensorButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="센서 추가하기" />
 
-    <Spinner
-        android:id="@+id/delaySpinner"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp" />
+        <!-- 동적 센서 설정 리스트 -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/sensorConfigRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="8dp"
+            android:nestedScrollingEnabled="false"/>
 
-    <Button
-        android:id="@+id/sendButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="설정 전송" />
+        <!-- 설정 전송 버튼 -->
+        <Button
+            android:id="@+id/sendButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="설정 전송하기"
+            android:layout_marginTop="8dp"/>
 
-    <!-- 📡 센서 이름 표시 -->
-    <TextView
-        android:id="@+id/sensorNameTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="센서: 없음"
-        android:textSize="16sp"
-        android:layout_marginTop="8dp" />
+        <!-- 상태 표시 -->
+        <TextView
+            android:id="@+id/statusTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="상태: 대기 중"
+            android:paddingTop="8dp"/>
 
-    <!-- 센서 수신 데이터 표시용 RecyclerView -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/messageRecyclerView"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="16dp"
-        android:scrollbars="vertical" />
+        <!-- 수신 센서 이름 -->
+        <TextView
+            android:id="@+id/sensorNameTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="수신 데이터 없음"
+            android:paddingTop="8dp"/>
 
-</LinearLayout>
+        <!-- 수신 데이터 표시 -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/messageRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:padding="8dp" />
+
+        <Button
+            android:id="@+id/saveDataButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="센서 데이터 저장" />
+
+        <Button
+            android:id="@+id/saveSensorExampleButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="센서 코드 예시 저장" />
+
+    </LinearLayout>
+</ScrollView>
