@@ -23,7 +23,7 @@ import java.io.FileOutputStream
 class MainActivity : AppCompatActivity() {
 
     private lateinit var sensorConfigRecyclerView: RecyclerView
-    private lateinit var sensorDataRecyclerView: RecyclerView  // ✅ 추가
+    private lateinit var sensorDataRecyclerView: RecyclerView
     private lateinit var addSensorButton: Button
     private lateinit var sendButton: Button
     private lateinit var saveButton: Button
@@ -60,7 +60,7 @@ class MainActivity : AppCompatActivity() {
 
         messageAdapter = MessageAdapter(messageList)
         sensorDataRecyclerView.layoutManager = LinearLayoutManager(this)
-        sensorDataRecyclerView.adapter = messageAdapter  // ✅ 여기서 연결
+        sensorDataRecyclerView.adapter = messageAdapter
 
         addSensorButton.setOnClickListener {
             configList.add(SensorConfigItem("", "", 5))
@@ -147,11 +147,11 @@ class MainActivity : AppCompatActivity() {
                             val data = WorkoutData.fromJson(item.toString())
                             data?.let {
                                 messageList.add(it)
-                                messageAdapter.notifyItemInserted(messageList.size - 1)  // ✅ 수신 후 리스트 갱신
+                                messageAdapter.notifyItemInserted(messageList.size - 1)
                             }
                         }
                     }
-                    sensorNameTextView.text = "📦 수신 완료"
+                    sensorNameTextView.text = "수신 완료"
                     updatePhoneStatus("수신 완료")
                 } catch (e: Exception) {
                     Log.e("MainActivity", "수신 파싱 오류: ${e.message}", e)

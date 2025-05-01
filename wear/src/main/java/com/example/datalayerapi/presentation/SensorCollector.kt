@@ -93,7 +93,7 @@ class SensorCollector(
             val z = it.values.getOrNull(2) ?: 0f
             val timestamp = System.currentTimeMillis()
 
-            buffer.add(SensorData(x, y, z, timestamp, sensorName))  // ✅ sensorName 포함
+            buffer.add(SensorData(x, y, z, timestamp, sensorName))
         }
     }
 

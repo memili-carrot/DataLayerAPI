@@ -34,7 +34,6 @@ class ConfigListenerService : WearableListenerService() {
                 val obj = JSONObject(configJson)
                 val sensorsArray = obj.getJSONArray("sensors")
 
-                // ✅ 수정된 부분: 각각의 센서 설정 읽기
                 for (i in 0 until sensorsArray.length()) {
                     val item = sensorsArray.getJSONObject(i)
                     val sensorName = item.getString("sensor")

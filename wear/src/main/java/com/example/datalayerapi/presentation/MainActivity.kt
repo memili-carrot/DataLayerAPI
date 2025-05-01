@@ -141,7 +141,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                         y,
                         z,
                         System.currentTimeMillis(),
-                        type.label  // ✅ 센서 이름 추가
+                        type.label
                     )
                 )
             }
