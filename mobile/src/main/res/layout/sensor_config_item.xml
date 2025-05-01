@@ -1,37 +1,78 @@
-<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="horizontal"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:gravity="center_vertical"
     android:padding="8dp">
 
-    <Spinner
-        android:id="@+id/sensorSpinner"
+    <!-- Sensor -->
+    <LinearLayout
+        android:orientation="vertical"
         android:layout_width="0dp"
-        android:layout_weight="1"
-        android:layout_height="wrap_content" />
+        android:layout_weight="1.3"
+        android:layout_height="wrap_content">
 
-    <Spinner
-        android:id="@+id/delaySpinner"
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Sensor"
+            android:textSize="12sp" />
+
+        <Spinner
+            android:id="@+id/sensorSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+    </LinearLayout>
+
+    <!-- Delay -->
+    <LinearLayout
+        android:orientation="vertical"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_weight="1.1"
         android:layout_marginStart="8dp"
-        android:layout_weight="1" />
+        android:layout_height="wrap_content">
 
-    <EditText
-        android:id="@+id/durationEditText"
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Delay"
+            android:textSize="12sp" />
+
+        <Spinner
+            android:id="@+id/delaySpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+    </LinearLayout>
+
+    <!-- Duration -->
+    <LinearLayout
+        android:orientation="vertical"
         android:layout_width="0dp"
-        android:layout_weight="1"
-        android:layout_height="wrap_content"
-        android:hint="Duration"
-        android:inputType="number"
-        android:layout_marginStart="8dp" />
+        android:layout_weight="0.9"
+        android:layout_marginStart="8dp"
+        android:layout_height="wrap_content">
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Duration"
+            android:textSize="12sp" />
+
+        <EditText
+            android:id="@+id/durationEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="seconds"
+            android:inputType="number" />
+    </LinearLayout>
+
+    <!-- Remove -->
     <ImageButton
         android:id="@+id/removeButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:src="@android:drawable/ic_menu_close_clear_cancel"
         android:contentDescription="Remove"
-        android:layout_marginStart="8dp"/>
+        android:layout_marginStart="12dp"
+        android:background="?attr/selectableItemBackgroundBorderless"/>
 </LinearLayout>

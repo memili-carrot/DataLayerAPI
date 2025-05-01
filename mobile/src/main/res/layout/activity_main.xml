@@ -10,14 +10,14 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- 센서 추가 버튼 -->
+        <!-- Add Sensor Button -->
         <Button
             android:id="@+id/addSensorButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="센서 추가하기" />
+            android:text="Add Sensor" />
 
-        <!-- 동적 센서 설정 리스트 -->
+        <!-- Dynamic Sensor Configuration List -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/sensorConfigRecyclerView"
             android:layout_width="match_parent"
@@ -25,49 +25,50 @@
             android:paddingTop="8dp"
             android:nestedScrollingEnabled="false"/>
 
-        <!-- 설정 전송 버튼 -->
+        <!-- Send Configuration Button -->
         <Button
             android:id="@+id/sendButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="설정 전송하기"
+            android:text="Send Configuration"
             android:layout_marginTop="8dp"/>
 
-        <!-- 상태 표시 -->
+        <!-- Save Sensor Data -->
+        <Button
+            android:id="@+id/saveDataButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Save Sensor Data" />
+
+        <!-- Export Sensor Code Example -->
+        <Button
+            android:id="@+id/exportCodeButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Export Code Example" />
+
+        <!-- Status Display -->
         <TextView
             android:id="@+id/statusTextView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="상태: 대기 중"
+            android:text="Status: Idle"
             android:paddingTop="8dp"/>
 
-        <!-- 수신 센서 이름 -->
+        <!-- Received Sensor Name -->
         <TextView
             android:id="@+id/sensorNameTextView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="수신 데이터 없음"
+            android:text="No data received"
             android:paddingTop="8dp"/>
 
-        <!-- 수신 데이터 표시 -->
+        <!-- Received Sensor Data Display -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/messageRecyclerView"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
             android:padding="8dp" />
-
-        <Button
-            android:id="@+id/saveDataButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="센서 데이터 저장" />
-
-        <Button
-            android:id="@+id/saveSensorExampleButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="센서 코드 예시 저장" />
-
     </LinearLayout>
 </ScrollView>

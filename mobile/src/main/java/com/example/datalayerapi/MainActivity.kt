@@ -1,10 +1,6 @@
 package com.example.datalayerapi
 
-import android.content.BroadcastReceiver
-import android.content.ContentValues
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
+import android.content.*
 import android.os.*
 import android.provider.MediaStore
 import android.util.Log
@@ -27,6 +23,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var addSensorButton: Button
     private lateinit var sendButton: Button
     private lateinit var saveButton: Button
+    private lateinit var exportCodeButton: Button
     private lateinit var statusTextView: TextView
     private lateinit var sensorNameTextView: TextView
     private lateinit var messageAdapter: MessageAdapter
@@ -48,6 +45,7 @@ class MainActivity : AppCompatActivity() {
         addSensorButton = findViewById(R.id.addSensorButton)
         sendButton = findViewById(R.id.sendButton)
         saveButton = findViewById(R.id.saveDataButton)
+        exportCodeButton = findViewById(R.id.exportCodeButton)
         statusTextView = findViewById(R.id.statusTextView)
         sensorNameTextView = findViewById(R.id.sensorNameTextView)
         vibrator = getSystemService(Vibrator::class.java)
@@ -87,6 +85,10 @@ class MainActivity : AppCompatActivity() {
             saveSensorDataToDownloadsFolder()
         }
 
+        exportCodeButton.setOnClickListener {
+            saveSensorExampleCodeToDownloadsFolder()
+        }
+
         val filter = IntentFilter().apply {
             addAction("com.example.datalayerapi.ACCELEROMETER_RECEIVED")
             addAction("com.example.datalayerapi.GYROSCOPE_RECEIVED")
@@ -123,6 +125,71 @@ class MainActivity : AppCompatActivity() {
                 Log.e("MainActivity", "전송 중 오류: ${e.message}", e)
             }
         }.start()
+    }
+
+    private fun saveSensorExampleCodeToDownloadsFolder() {
+        val exampleJson = generateSensorExampleCodeJson()
+        val fileName = "sensor_code_example_${getCurrentTimestamp()}.json"
+        val fileContent = exampleJson.toString(4).toByteArray()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val contentValues = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                put(MediaStore.Downloads.MIME_TYPE, "application/json")
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                put(MediaStore.Downloads.IS_PENDING, 1)
+            }
+
+            val resolver = contentResolver
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+
+            uri?.let {
+                resolver.openOutputStream(it)?.use { outputStream ->
+                    outputStream.write(fileContent)
+                }
+                contentValues.clear()
+                contentValues.put(MediaStore.Downloads.IS_PENDING, 0)
+                resolver.update(uri, contentValues, null, null)
+            }
+        } else {
+            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val file = File(downloadsDir, fileName)
+            FileOutputStream(file).use {
+                it.write(fileContent)
+            }
+        }
+
+        runOnUiThread {
+            Toast.makeText(this, "✅ 예시코드 저장 완료: $fileName", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun generateSensorExampleCodeJson(): JSONArray {
+        val jsonArray = JSONArray()
+
+        configList.forEach { config ->
+            val codeSnippet = """
+                sensorManager.registerListener(
+                    this,
+                    sensorManager.getDefaultSensor(Sensor.TYPE_${config.sensorName.uppercase()}),
+                    SensorManager.SENSOR_DELAY_${config.delayOption.uppercase()}
+                )
+                Handler().postDelayed({
+                    sensorManager.unregisterListener(this)
+                }, ${config.durationSec * 1000})
+            """.trimIndent()
+
+            val obj = JSONObject().apply {
+                put("sensor", config.sensorName)
+                put("delayOption", config.delayOption)
+                put("durationSec", config.durationSec)
+                put("example_code", codeSnippet)
+            }
+
+            jsonArray.put(obj)
+        }
+
+        return jsonArray
     }
 
     private fun updatePhoneStatus(status: String) {

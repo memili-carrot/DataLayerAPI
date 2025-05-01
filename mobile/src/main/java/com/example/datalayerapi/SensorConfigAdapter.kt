@@ -1,6 +1,8 @@
 package com.example.datalayerapi
 
 import android.content.Context
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -46,12 +48,16 @@ class SensorConfigAdapter(
             override fun onNothingSelected(parent: AdapterView<*>) {}
         }
 
+        // duration 설정 - 실시간 반영
         holder.durationEditText.setText(config.durationSec.toString())
-        holder.durationEditText.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) {
-                config.durationSec = holder.durationEditText.text.toString().toIntOrNull() ?: 5
+        holder.durationEditText.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                config.durationSec = s.toString().toIntOrNull() ?: 5
             }
-        }
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
 
         // 삭제 버튼
         holder.removeButton.setOnClickListener {
