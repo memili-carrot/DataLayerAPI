@@ -31,7 +31,7 @@ class MainActivity : AppCompatActivity() {
     private val configList = mutableListOf<SensorConfigItem>()
     private lateinit var sensorConfigAdapter: SensorConfigAdapter
     private lateinit var vibrator: Vibrator
-    private var phoneStatus: String = "대기 중"
+    private var phoneStatus: String = "Waiting"
 
     private val delayOptions = listOf("FASTEST", "GAME", "UI", "NORMAL")
     private val sensorOptions = listOf("Accelerometer", "Gyroscope", "Light", "Magnetic", "Gravity")
@@ -50,7 +50,7 @@ class MainActivity : AppCompatActivity() {
         sensorNameTextView = findViewById(R.id.sensorNameTextView)
         vibrator = getSystemService(Vibrator::class.java)
 
-        updatePhoneStatus("대기 중")
+        updatePhoneStatus("Waiting")
 
         sensorConfigAdapter = SensorConfigAdapter(this, sensorOptions, delayOptions, configList)
         sensorConfigRecyclerView.layoutManager = LinearLayoutManager(this)
@@ -78,7 +78,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             sendConfigToWatch(configJson)
-            updatePhoneStatus("센서 설정 전송 완료")
+            updatePhoneStatus("Send settings complete")
         }
 
         saveButton.setOnClickListener {
@@ -112,12 +112,12 @@ class MainActivity : AppCompatActivity() {
                         .sendMessage(it.id, "/config_multi", payload.toString().toByteArray())
                         .addOnSuccessListener {
                             runOnUiThread {
-                                Toast.makeText(this, "설정 전송 완료", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this, "Send settings complete\n", Toast.LENGTH_SHORT).show()
                             }
                         }
                         .addOnFailureListener { e ->
                             runOnUiThread {
-                                Toast.makeText(this, "전송 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this, "Failed to send: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
                         }
                 }
@@ -160,7 +160,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         runOnUiThread {
-            Toast.makeText(this, "✅ 예시코드 저장 완료: $fileName", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "✅ Sample code saved: $fileName", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -194,7 +194,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updatePhoneStatus(status: String) {
         phoneStatus = status
-        statusTextView.text = "상태: $phoneStatus"
+        statusTextView.text = "State: $phoneStatus"
         if (vibrator.hasVibrator()) {
             vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
         }
@@ -218,8 +218,8 @@ class MainActivity : AppCompatActivity() {
                             }
                         }
                     }
-                    sensorNameTextView.text = "수신 완료"
-                    updatePhoneStatus("수신 완료")
+                    sensorNameTextView.text = "Receipt completed\n"
+                    updatePhoneStatus("Receipt completed\n")
                 } catch (e: Exception) {
                     Log.e("MainActivity", "수신 파싱 오류: ${e.message}", e)
                 }
@@ -271,7 +271,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         runOnUiThread {
-            Toast.makeText(this, "✅ 다운로드 폴더에 저장 완료: $fileName", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "✅ Complete saving in download folder: $fileName", Toast.LENGTH_LONG).show()
         }
     }
 
