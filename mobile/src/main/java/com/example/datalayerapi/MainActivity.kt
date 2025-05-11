@@ -26,6 +26,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var exportCodeButton: Button
     private lateinit var statusTextView: TextView
     private lateinit var sensorNameTextView: TextView
+    private lateinit var batteryUsageTextView: TextView
     private lateinit var messageAdapter: MessageAdapter
     private val messageList = mutableListOf<WorkoutData>()
     private val configList = mutableListOf<SensorConfigItem>()
@@ -34,7 +35,7 @@ class MainActivity : AppCompatActivity() {
     private var phoneStatus: String = "Waiting"
 
     private val delayOptions = listOf("FASTEST", "GAME", "UI", "NORMAL")
-    private val sensorOptions = listOf("Accelerometer", "Gyroscope", "Light", "Magnetic", "Gravity")
+    private val sensorOptions = listOf("Accelerometer", "Gyroscope", "Light", "Magnetic", "HeartRate")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,7 +48,7 @@ class MainActivity : AppCompatActivity() {
         saveButton = findViewById(R.id.saveDataButton)
         exportCodeButton = findViewById(R.id.exportCodeButton)
         statusTextView = findViewById(R.id.statusTextView)
-        sensorNameTextView = findViewById(R.id.sensorNameTextView)
+        batteryUsageTextView = findViewById(R.id.batteryUsageTextView)
         vibrator = getSystemService(Vibrator::class.java)
 
         updatePhoneStatus("Waiting")
@@ -61,7 +62,7 @@ class MainActivity : AppCompatActivity() {
         sensorDataRecyclerView.adapter = messageAdapter
 
         addSensorButton.setOnClickListener {
-            configList.add(SensorConfigItem("", "", 5))
+            configList.add(SensorConfigItem("", "", 0))
             sensorConfigAdapter.notifyItemInserted(configList.size - 1)
         }
 
@@ -81,29 +82,21 @@ class MainActivity : AppCompatActivity() {
             updatePhoneStatus("Send settings complete")
         }
 
-        saveButton.setOnClickListener {
-            saveSensorDataToDownloadsFolder()
-        }
-
-        exportCodeButton.setOnClickListener {
-            saveSensorExampleCodeToDownloadsFolder()
-        }
+        saveButton.setOnClickListener { saveSensorDataToDownloadsFolder() }
+        exportCodeButton.setOnClickListener { saveSensorExampleCodeToDownloadsFolder() }
 
         val filter = IntentFilter().apply {
             addAction("com.example.datalayerapi.ACCELEROMETER_RECEIVED")
             addAction("com.example.datalayerapi.GYROSCOPE_RECEIVED")
             addAction("com.example.datalayerapi.LIGHT_RECEIVED")
             addAction("com.example.datalayerapi.MAGNETIC_RECEIVED")
-            addAction("com.example.datalayerapi.GRAVITY_RECEIVED")
+            addAction("com.example.datalayerapi.HEARTRATE_RECEIVED")
         }
         LocalBroadcastManager.getInstance(this).registerReceiver(sensorReceiver, filter)
     }
 
     private fun sendConfigToWatch(configArray: JSONArray) {
-        val payload = JSONObject().apply {
-            put("sensors", configArray)
-        }
-
+        val payload = JSONObject().apply { put("sensors", configArray) }
         Thread {
             try {
                 val node = Tasks.await(Wearable.getNodeClient(this).connectedNodes).firstOrNull()
@@ -127,81 +120,9 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun saveSensorExampleCodeToDownloadsFolder() {
-        val exampleJson = generateSensorExampleCodeJson()
-        val fileName = "sensor_code_example_${getCurrentTimestamp()}.json"
-        val fileContent = exampleJson.toString(4).toByteArray()
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val contentValues = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                put(MediaStore.Downloads.MIME_TYPE, "application/json")
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                put(MediaStore.Downloads.IS_PENDING, 1)
-            }
-
-            val resolver = contentResolver
-            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
-
-            uri?.let {
-                resolver.openOutputStream(it)?.use { outputStream ->
-                    outputStream.write(fileContent)
-                }
-                contentValues.clear()
-                contentValues.put(MediaStore.Downloads.IS_PENDING, 0)
-                resolver.update(uri, contentValues, null, null)
-            }
-        } else {
-            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            val file = File(downloadsDir, fileName)
-            FileOutputStream(file).use {
-                it.write(fileContent)
-            }
-        }
-
-        runOnUiThread {
-            Toast.makeText(this, "✅ Sample code saved: $fileName", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    private fun generateSensorExampleCodeJson(): JSONArray {
-        val jsonArray = JSONArray()
-
-        configList.forEach { config ->
-            val codeSnippet = """
-                sensorManager.registerListener(
-                    this,
-                    sensorManager.getDefaultSensor(Sensor.TYPE_${config.sensorName.uppercase()}),
-                    SensorManager.SENSOR_DELAY_${config.delayOption.uppercase()}
-                )
-                Handler().postDelayed({
-                    sensorManager.unregisterListener(this)
-                }, ${config.durationSec * 1000})
-            """.trimIndent()
-
-            val obj = JSONObject().apply {
-                put("sensor", config.sensorName)
-                put("delayOption", config.delayOption)
-                put("durationSec", config.durationSec)
-                put("example_code", codeSnippet)
-            }
-
-            jsonArray.put(obj)
-        }
-
-        return jsonArray
-    }
-
-    private fun updatePhoneStatus(status: String) {
-        phoneStatus = status
-        statusTextView.text = "State: $phoneStatus"
-        if (vibrator.hasVibrator()) {
-            vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
-        }
-    }
-
     private val sensorReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
+            val batteryUsed = intent?.getIntExtra("BatteryUsed", -1) ?: -1
             intent?.getStringExtra("JsonData")?.let { json ->
                 try {
                     val jsonObj = JSONObject(json)
@@ -217,14 +138,82 @@ class MainActivity : AppCompatActivity() {
                                 messageAdapter.notifyItemInserted(messageList.size - 1)
                             }
                         }
+                        val statusText = buildString {
+                            append("\uD83D\uDCE1 센서: $key\n")
+                            append("\uD83D\uDCCA 수신 데이터: ${dataArray.length()}개\n")
+                        }
+                        sensorNameTextView.text = statusText
+                        if (batteryUsed >= 0) batteryUsageTextView.text = "Battery consumption\n: $batteryUsed%"
+                        else batteryUsageTextView.text = ""
+                        updatePhoneStatus("Receipt completed\n")
                     }
-                    sensorNameTextView.text = "Receipt completed\n"
-                    updatePhoneStatus("Receipt completed\n")
                 } catch (e: Exception) {
                     Log.e("MainActivity", "수신 파싱 오류: ${e.message}", e)
                 }
             }
         }
+    }
+
+    private fun updatePhoneStatus(status: String) {
+        phoneStatus = status
+        statusTextView.text = "State: $phoneStatus"
+        if (vibrator.hasVibrator()) {
+            vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
+        }
+    }
+
+    private fun saveSensorExampleCodeToDownloadsFolder() {
+        val exampleJson = generateSensorExampleCodeJson()
+        val fileName = "sensor_code_example_${getCurrentTimestamp()}.json"
+        val fileContent = exampleJson.toString(4).toByteArray()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val contentValues = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                put(MediaStore.Downloads.MIME_TYPE, "application/json")
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                put(MediaStore.Downloads.IS_PENDING, 1)
+            }
+            val resolver = contentResolver
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+            uri?.let {
+                resolver.openOutputStream(it)?.use { outputStream -> outputStream.write(fileContent) }
+                contentValues.clear()
+                contentValues.put(MediaStore.Downloads.IS_PENDING, 0)
+                resolver.update(uri, contentValues, null, null)
+            }
+        } else {
+            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val file = File(downloadsDir, fileName)
+            FileOutputStream(file).use { it.write(fileContent) }
+        }
+        runOnUiThread {
+            Toast.makeText(this, "✅ Example saved: $fileName", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun generateSensorExampleCodeJson(): JSONArray {
+        val jsonArray = JSONArray()
+        configList.forEach { config ->
+            val codeSnippet = """
+                sensorManager.registerListener(
+                    this,
+                    sensorManager.getDefaultSensor(Sensor.TYPE_${config.sensorName.uppercase()}),
+                    SensorManager.SENSOR_DELAY_${config.delayOption.uppercase()}
+                )
+                Handler().postDelayed({
+                    sensorManager.unregisterListener(this)
+                }, ${config.durationSec * 1000})
+            """.trimIndent()
+            val obj = JSONObject().apply {
+                put("sensor", config.sensorName)
+                put("delayOption", config.delayOption)
+                put("durationSec", config.durationSec)
+                put("example_code", codeSnippet)
+            }
+            jsonArray.put(obj)
+        }
+        return jsonArray
     }
 
     private fun saveSensorDataToDownloadsFolder() {
@@ -239,10 +228,8 @@ class MainActivity : AppCompatActivity() {
             }
             jsonArray.put(obj)
         }
-
         val fileName = "sensor_data_${getCurrentTimestamp()}.json"
         val fileContent = jsonArray.toString(4).toByteArray()
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val contentValues = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, fileName)
@@ -250,14 +237,10 @@ class MainActivity : AppCompatActivity() {
                 put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
                 put(MediaStore.Downloads.IS_PENDING, 1)
             }
-
             val resolver = contentResolver
             val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
-
             uri?.let {
-                resolver.openOutputStream(it)?.use { outputStream ->
-                    outputStream.write(fileContent)
-                }
+                resolver.openOutputStream(it)?.use { outputStream -> outputStream.write(fileContent) }
                 contentValues.clear()
                 contentValues.put(MediaStore.Downloads.IS_PENDING, 0)
                 resolver.update(uri, contentValues, null, null)
@@ -265,19 +248,14 @@ class MainActivity : AppCompatActivity() {
         } else {
             val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             val file = File(downloadsDir, fileName)
-            FileOutputStream(file).use {
-                it.write(fileContent)
-            }
+            FileOutputStream(file).use { it.write(fileContent) }
         }
-
         runOnUiThread {
-            Toast.makeText(this, "✅ Complete saving in download folder: $fileName", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "✅ Sensor data saved: $fileName", Toast.LENGTH_LONG).show()
         }
     }
 
-    private fun getCurrentTimestamp(): String {
-        return System.currentTimeMillis().toString()
-    }
+    private fun getCurrentTimestamp(): String = System.currentTimeMillis().toString()
 
     override fun onDestroy() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(sensorReceiver)

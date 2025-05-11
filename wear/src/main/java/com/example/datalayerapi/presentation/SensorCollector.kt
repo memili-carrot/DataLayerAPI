@@ -5,6 +5,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.BatteryManager
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -27,12 +28,20 @@ class SensorCollector(
     private val buffer = mutableListOf<SensorData>()
     private var isCollecting = false
     private val handler = Handler(Looper.getMainLooper())
-    private val sensorName: String = SensorType.values().find { it.androidType == sensor.type }?.label ?: "Unknown"
+    private val sensorName: String = SensorType.values()
+        .find { it.androidType == sensor.type }?.label ?: "Unknown"
+
+    private var batteryBefore: Int = -1
+    private var batteryAfter: Int = -1
 
     fun start() {
         if (!isCollecting) {
             sensorManager.registerListener(this, sensor, sensorDelay)
             isCollecting = true
+
+            // 배터리 수집 시작 시점 측정
+            batteryBefore = getBatteryLevel()
+            Log.d(TAG, "🔋 시작 배터리: $batteryBefore%")
 
             handler.postDelayed({
                 stopAndSend()
@@ -45,19 +54,34 @@ class SensorCollector(
             sensorManager.unregisterListener(this)
             isCollecting = false
 
+            // 배터리 종료 시점 측정
+            batteryAfter = getBatteryLevel()
+            Log.d(TAG, "🔋 종료 배터리: $batteryAfter%")
+
+            val batteryUsed = batteryBefore - batteryAfter
+            Log.d(TAG, "📉 사용된 배터리: ${batteryUsed}% ($sensorName)")
+
             if (buffer.isNotEmpty()) {
-                sendBuffer()
+                sendBuffer(buffer.toList())
+                buffer.clear()
             }
         }
     }
 
-    private fun sendBuffer() {
+    private fun getBatteryLevel(): Int {
+        val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        return batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+    }
+
+    private fun sendBuffer(dataToSend: List<SensorData>) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val nodeId = Wearable.getNodeClient(context).connectedNodes.await().firstOrNull()?.id
+                val nodeId = Wearable.getNodeClient(context).connectedNodes.await()
+                    .firstOrNull()?.id
+
                 nodeId?.let { id ->
                     val jsonArray = JSONArray()
-                    buffer.forEach { data ->
+                    dataToSend.forEach { data ->
                         jsonArray.put(JSONObject().apply {
                             put("x", data.x)
                             put("y", data.y)
@@ -74,10 +98,10 @@ class SensorCollector(
                     Wearable.getMessageClient(context)
                         .sendMessage(id, "/${sensorName.lowercase()}", jsonObject.toString().toByteArray())
                         .addOnSuccessListener {
-                            Log.d(TAG, "✅ Sent sensor: $sensorName")
+                            Log.d(TAG, "✅ Sent ${dataToSend.size} from $sensorName")
                         }
                         .addOnFailureListener {
-                            Log.e(TAG, "❌ Failed to send sensor: $sensorName, ${it.message}")
+                            Log.e(TAG, "❌ Failed to send buffer from $sensorName", it)
                         }
                 }
             } catch (e: Exception) {
@@ -94,6 +118,11 @@ class SensorCollector(
             val timestamp = System.currentTimeMillis()
 
             buffer.add(SensorData(x, y, z, timestamp, sensorName))
+
+            if (buffer.size >= 100) {
+                sendBuffer(buffer.toList())
+                buffer.clear()
+            }
         }
     }
 

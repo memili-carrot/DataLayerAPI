@@ -24,8 +24,8 @@ class SensorConfigAdapter(
     override fun onBindViewHolder(holder: ConfigViewHolder, position: Int) {
         val config = configList[position]
 
-        // 센서 스피너 설정
-        val sensorAdapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, sensorOptions)
+        // 센서 스피너 설정 - 말줄임 방지를 위해 커스텀 레이아웃 사용
+        val sensorAdapter = ArrayAdapter(context, R.layout.spinner_item, sensorOptions)
         sensorAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         holder.sensorSpinner.adapter = sensorAdapter
         holder.sensorSpinner.setSelection(sensorOptions.indexOf(config.sensorName))
@@ -36,8 +36,8 @@ class SensorConfigAdapter(
             override fun onNothingSelected(parent: AdapterView<*>) {}
         }
 
-        // 딜레이 스피너 설정
-        val delayAdapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, delayOptions)
+        // 딜레이 스피너 설정 - 커스텀 레이아웃 적용
+        val delayAdapter = ArrayAdapter(context, R.layout.spinner_item, delayOptions)
         delayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         holder.delaySpinner.adapter = delayAdapter
         holder.delaySpinner.setSelection(delayOptions.indexOf(config.delayOption))
@@ -49,21 +49,22 @@ class SensorConfigAdapter(
         }
 
         // duration 설정 - 실시간 반영
-        holder.durationEditText.setText(config.durationSec.toString())
+        holder.durationEditText.setText(
+            if (config.durationSec > 0) config.durationSec.toString() else ""
+        )
+
         holder.durationEditText.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
                 config.durationSec = s.toString().toIntOrNull() ?: 5
             }
-
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
 
-        // 삭제 버튼
+        // 삭제 버튼 클릭 시 항목 제거
         holder.removeButton.setOnClickListener {
             configList.removeAt(position)
-            notifyItemRemoved(position)
-            notifyItemRangeChanged(position, configList.size)
+            notifyDataSetChanged()
         }
     }
 
