@@ -15,6 +15,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -48,6 +51,7 @@ class MainActivity : AppCompatActivity() {
         saveButton = findViewById(R.id.saveDataButton)
         exportCodeButton = findViewById(R.id.exportCodeButton)
         statusTextView = findViewById(R.id.statusTextView)
+        sensorNameTextView = findViewById(R.id.sensorNameTextView)
         batteryUsageTextView = findViewById(R.id.batteryUsageTextView)
         vibrator = getSystemService(Vibrator::class.java)
 
@@ -139,12 +143,13 @@ class MainActivity : AppCompatActivity() {
                             }
                         }
                         val statusText = buildString {
-                            append("\uD83D\uDCE1 센서: $key\n")
-                            append("\uD83D\uDCCA 수신 데이터: ${dataArray.length()}개\n")
+                            append("Sensor: $key\n")
+                            append("Real-time received data\n: ${dataArray.length()}개\n")
                         }
                         sensorNameTextView.text = statusText
                         if (batteryUsed >= 0) batteryUsageTextView.text = "Battery consumption\n: $batteryUsed%"
-                        else batteryUsageTextView.text = ""
+                        else
+                            batteryUsageTextView.text = "Battery usage info not available"
                         updatePhoneStatus("Receipt completed\n")
                     }
                 } catch (e: Exception) {
@@ -220,7 +225,7 @@ class MainActivity : AppCompatActivity() {
         val jsonArray = JSONArray()
         messageList.forEach { data ->
             val obj = JSONObject().apply {
-                put("timestamp", data.timestamp)
+                put("timestamp", formatTimestamp(data.timestamp))
                 put("sensor", data.sensor)
                 put("x", data.x)
                 put("y", data.y)
@@ -253,6 +258,11 @@ class MainActivity : AppCompatActivity() {
         runOnUiThread {
             Toast.makeText(this, "✅ Sensor data saved: $fileName", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun formatTimestamp(timestampMillis: Long): String {
+        val sdf = SimpleDateFormat("yyyy.MM.dd HH:mm:ss", Locale.getDefault())
+        return sdf.format(Date(timestampMillis))
     }
 
     private fun getCurrentTimestamp(): String = System.currentTimeMillis().toString()

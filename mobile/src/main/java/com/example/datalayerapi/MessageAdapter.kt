@@ -5,6 +5,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MessageAdapter(private val messages: List<WorkoutData>) :
     RecyclerView.Adapter<MessageAdapter.MessageViewHolder>() {
@@ -27,8 +30,15 @@ class MessageAdapter(private val messages: List<WorkoutData>) :
         holder.xView.text = "X: %.3f".format(item.x)
         holder.yView.text = "Y: %.3f".format(item.y)
         holder.zView.text = "Z: %.3f".format(item.z)
-        holder.timestampView.text = "Time: ${item.timestamp}"
+
+        val formattedTime = formatTimestamp(item.timestamp)
+        holder.timestampView.text = "Time: $formattedTime"
     }
 
     override fun getItemCount() = messages.size
+}
+private fun formatTimestamp(timestampMillis: Long): String {
+    val date = Date(timestampMillis)
+    val sdf = SimpleDateFormat("yyyy.MM.dd HH:mm:ss", Locale.getDefault())
+    return sdf.format(date)
 }

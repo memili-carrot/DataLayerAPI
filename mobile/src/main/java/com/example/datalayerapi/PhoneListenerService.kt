@@ -14,17 +14,17 @@ class PhoneListenerService : WearableListenerService() {
         val jsonMessage = String(messageEvent.data)
         Log.d(TAG, "Received message on path: $path")
 
-        // batteryUsed 값도 추출
         val json = JSONObject(jsonMessage)
         val batteryUsed = json.optInt("batteryUsed", -1)
 
         when (path) {
-            "/accelerometer" -> broadcast("com.example.datalayerapi.ACCELEROMETER_RECEIVED", jsonMessage, batteryUsed)
-            "/gyroscope"     -> broadcast("com.example.datalayerapi.GYROSCOPE_RECEIVED", jsonMessage, batteryUsed)
-            "/light"         -> broadcast("com.example.datalayerapi.LIGHT_RECEIVED", jsonMessage, batteryUsed)
-            "/magnetic"      -> broadcast("com.example.datalayerapi.MAGNETIC_RECEIVED", jsonMessage, batteryUsed)
-            "/heartrate"     -> broadcast("com.example.datalayerapi.HEARTRATE_RECEIVED", jsonMessage, batteryUsed) // ✅ 추가
-            else             -> Log.w(TAG, "Unknown path received: $path")
+            "/multi_sensor"   -> broadcast("com.example.datalayerapi.MULTI_SENSOR_RECEIVED", jsonMessage, batteryUsed)
+            "/accelerometer"  -> broadcast("com.example.datalayerapi.ACCELEROMETER_RECEIVED", jsonMessage, batteryUsed)
+            "/gyroscope"      -> broadcast("com.example.datalayerapi.GYROSCOPE_RECEIVED", jsonMessage, batteryUsed)
+            "/light"          -> broadcast("com.example.datalayerapi.LIGHT_RECEIVED", jsonMessage, batteryUsed)
+            "/magnetic"       -> broadcast("com.example.datalayerapi.MAGNETIC_RECEIVED", jsonMessage, batteryUsed)
+            "/heartrate"      -> broadcast("com.example.datalayerapi.HEARTRATE_RECEIVED", jsonMessage, batteryUsed)
+            else              -> Log.w(TAG, "Unknown path received: $path")
         }
     }
 

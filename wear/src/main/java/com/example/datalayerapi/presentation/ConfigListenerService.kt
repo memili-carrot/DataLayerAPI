@@ -6,11 +6,6 @@ import android.hardware.SensorManager
 import android.util.Log
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
-import org.json.JSONArray
 import org.json.JSONObject
 
 class ConfigListenerService : WearableListenerService() {
@@ -24,8 +19,6 @@ class ConfigListenerService : WearableListenerService() {
     }
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
-        Log.d(TAG, "📥 Received message: ${messageEvent.path}")
-
         if (messageEvent.path == "/config_multi") {
             val configJson = String(messageEvent.data)
             Log.d(TAG, "📥 Config received: $configJson")
@@ -33,6 +26,12 @@ class ConfigListenerService : WearableListenerService() {
             try {
                 val obj = JSONObject(configJson)
                 val sensorsArray = obj.getJSONArray("sensors")
+
+                // 설정 수신 완료 알림
+                sendBroadcast(Intent("com.example.datalayerapi.CONFIG_RECEIVED").apply {
+                    putExtra("status", "설정 수신 완료")
+                })
+                Log.d(TAG, "📤 Broadcast sent to MainActivity")
 
                 for (i in 0 until sensorsArray.length()) {
                     val item = sensorsArray.getJSONObject(i)
@@ -52,15 +51,17 @@ class ConfigListenerService : WearableListenerService() {
                     if (sensorType != null) {
                         val sensor = sensorManager.getDefaultSensor(sensorType)
                         if (sensor != null) {
-                            val collector = SensorCollector(sensorManager, sensor, sensorDelay, durationSec, applicationContext)
+                            val collector = SensorCollector(
+                                sensorManager,
+                                sensor,
+                                sensorDelay,
+                                durationSec,
+                                applicationContext
+                            )
                             collector.start()
                             activeCollectors.add(collector)
-                            Log.d(TAG, "✅ Registered sensor: $sensorName ($delayLabel, $durationSec sec)")
-                        } else {
-                            Log.w(TAG, "⚠️ Sensor not found: $sensorName")
+                            Log.d(TAG, "✅ Registered sensor: $sensorName")
                         }
-                    } else {
-                        Log.w(TAG, "⚠️ Unknown sensor type: $sensorName")
                     }
                 }
 

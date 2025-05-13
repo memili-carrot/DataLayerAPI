@@ -1,8 +1,10 @@
 package com.example.datalayerapi.presentation
 
+import android.content.*
 import android.hardware.*
 import android.os.*
 import android.util.Log
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -16,7 +18,6 @@ import com.google.android.gms.tasks.Tasks
 import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import org.json.JSONArray
 import org.json.JSONObject
 
 class MainActivity : ComponentActivity(), SensorEventListener {
@@ -24,138 +25,94 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private lateinit var vibrator: Vibrator
 
-    private var watchStatus by mutableStateOf("대기 중")
-
-    // 선택된 센서들
-    private var selectedSensors by mutableStateOf(listOf<SensorType>())
-
-    // 센서 객체들
+    private var watchStatus by mutableStateOf("Waiting")
     private val sensorMap = mutableMapOf<SensorType, Sensor?>()
-
-    // 센서별 버퍼
     private val bufferMap = mutableMapOf<SensorType, SensorDataBuffer>()
-
-    // 최신값 상태
     private var latestValues by mutableStateOf<Map<SensorType, Triple<Float, Float, Float>>>(emptyMap())
+
+    // ✅ 설정 수신/종료 감지 브로드캐스트 리시버
+    private val configReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val newStatus = intent?.getStringExtra("status") ?: return
+            updateWatchStatus(newStatus)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
         sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
         vibrator = getSystemService(Vibrator::class.java)
 
+        // ✅ 브로드캐스트 등록
+        registerReceiver(
+            configReceiver,
+            IntentFilter("com.example.datalayerapi.CONFIG_RECEIVED"),
+            RECEIVER_NOT_EXPORTED // 👈 이 부분이 필수
+        )
+
         setContent {
-            SensorSelectorUI()
+            SensorStatusUI()
         }
     }
 
     @Composable
-    fun SensorSelectorUI() {
+    fun SensorStatusUI() {
+        val isLoading = watchStatus.contains("수집중") || watchStatus.contains("전송중")
+        val battery = getBatteryPercentage()
+
         Column(
-            Modifier.fillMaxSize(),
+            Modifier
+                .fillMaxSize()
+                .padding(16.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            var expanded by remember { mutableStateOf(false) }
-            Box {
-                Button(onClick = { expanded = true }) {
-                    Text("센서 선택 (${selectedSensors.size})")
-                }
-                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    SensorType.values().forEach { type ->
-                        DropdownMenuItem(
-                            text = { Text(type.label) },
-                            onClick = {
-                                expanded = false
-                                toggleSensor(type)
-                            }
-                        )
-                    }
-                }
-            }
-
+            Text("State: $watchStatus", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(12.dp))
+            Text("Battery: ${if (battery >= 0) "$battery%" else "None"}")
             Spacer(Modifier.height(16.dp))
 
-            selectedSensors.forEach { type ->
-                val values = latestValues[type] ?: Triple(0f, 0f, 0f)
-                Text("${type.label} X: ${values.first}")
-                Text("${type.label} Y: ${values.second}")
-                Text("${type.label} Z: ${values.third}")
-                Spacer(Modifier.height(8.dp))
-            }
-
-            Spacer(Modifier.height(16.dp))
-            Text("상태: $watchStatus")
-
-            Spacer(Modifier.height(16.dp))
-            Button(onClick = { sendSensorData() }) {
-                Text("Send Collected Data")
+            if (isLoading) {
+                CircularProgressIndicator()
+                Spacer(Modifier.height(16.dp))
             }
         }
     }
 
-    private fun toggleSensor(type: SensorType) {
-        if (selectedSensors.contains(type)) {
-            selectedSensors = selectedSensors - type
-            stopSensor(type)
-        } else {
-            selectedSensors = selectedSensors + type
-            startSensor(type)
-        }
-    }
-
-    private fun startSensor(type: SensorType) {
-        val sensor = sensorManager.getDefaultSensor(type.androidType)
-        sensor?.let {
-            sensorMap[type] = it
-            bufferMap[type] = SensorDataBuffer()
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
-            updateWatchStatus("센서 데이터 수집중")
-        }
-    }
-
-    private fun stopSensor(type: SensorType) {
-        sensorMap[type]?.let {
-            sensorManager.unregisterListener(this, it)
-        }
-        sensorMap.remove(type)
-        bufferMap.remove(type)
+    private fun getBatteryPercentage(): Int {
+        val batteryStatus = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+        return if (level >= 0 && scale > 0) (level * 100) / scale else -1
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
         event?.let {
-            val matchingType = SensorType.values().find { type -> type.androidType == it.sensor.type }
-            matchingType?.let { type ->
-                val x = it.values.getOrElse(0) { 0f }
-                val y = it.values.getOrElse(1) { 0f }
-                val z = it.values.getOrElse(2) { 0f }
+            val type = SensorType.values().find { it.androidType == event.sensor.type } ?: return
+            val x = event.values.getOrElse(0) { 0f }
+            val y = event.values.getOrElse(1) { 0f }
+            val z = event.values.getOrElse(2) { 0f }
 
-                // 최신 값 업데이트
-                latestValues = latestValues.toMutableMap().apply {
-                    put(type, Triple(x, y, z))
-                }
-
-                // 버퍼 추가
-                bufferMap[type]?.add(
-                    SensorData(
-                        x,
-                        y,
-                        z,
-                        System.currentTimeMillis(),
-                        type.label
-                    )
-                )
+            latestValues = latestValues.toMutableMap().apply {
+                put(type, Triple(x, y, z))
             }
+
+            bufferMap[type]?.add(SensorData(x, y, z, System.currentTimeMillis(), type.label))
         }
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
     private fun sendSensorData() {
+        updateWatchStatus("전송중")
+
         lifecycleScope.launch(Dispatchers.IO) {
             val nodeId = getNodes().firstOrNull()
             nodeId?.let {
                 val jsonObject = JSONObject()
-
                 bufferMap.forEach { (type, buffer) ->
                     jsonObject.put(type.name.lowercase(), buffer.toJsonArray())
                 }
@@ -169,6 +126,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                     }
                     addOnFailureListener {
                         Log.d("MainActivity", "❌ Failed to send sensor data: ${it.message}")
+                        updateWatchStatus("전송 실패")
                     }
                 }
             }
@@ -193,5 +151,10 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     override fun onPause() {
         super.onPause()
         sensorManager.unregisterListener(this)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(configReceiver) // ✅ 해제
     }
 }
