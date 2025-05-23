@@ -21,17 +21,21 @@ class ConfigListenerService : WearableListenerService() {
     override fun onMessageReceived(messageEvent: MessageEvent) {
         if (messageEvent.path == "/config_multi") {
             val configJson = String(messageEvent.data)
-            Log.d(TAG, "📥 Config received: $configJson")
+            Log.d(TAG, "\uD83D\uDCE5 Config received: $configJson")
 
             try {
                 val obj = JSONObject(configJson)
                 val sensorsArray = obj.getJSONArray("sensors")
 
+                // ✅ 기존 센서 수집기 정리
+                activeCollectors.forEach { it.stop() }
+                activeCollectors.clear()
+
                 // 설정 수신 완료 알림
                 sendBroadcast(Intent("com.example.datalayerapi.CONFIG_RECEIVED").apply {
                     putExtra("status", "설정 수신 완료")
                 })
-                Log.d(TAG, "📤 Broadcast sent to MainActivity")
+                Log.d(TAG, "\uD83D\uDCE4 Broadcast sent to MainActivity")
 
                 for (i in 0 until sensorsArray.length()) {
                     val item = sensorsArray.getJSONObject(i)
@@ -45,6 +49,14 @@ class ConfigListenerService : WearableListenerService() {
                         "UI" -> SensorManager.SENSOR_DELAY_UI
                         "NORMAL" -> SensorManager.SENSOR_DELAY_NORMAL
                         else -> SensorManager.SENSOR_DELAY_NORMAL
+                    }
+
+                    // ✅ GPS는 별도 처리
+                    if (sensorName == "GPS") {
+                        val gpsCollector = GpsCollector(applicationContext, durationSec)
+                        gpsCollector.start()
+                        Log.d(TAG, "📡 Started GPS collector")
+                        continue
                     }
 
                     val sensorType = SensorType.fromLabel(sensorName)?.androidType

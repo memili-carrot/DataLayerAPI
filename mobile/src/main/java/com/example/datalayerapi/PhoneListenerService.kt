@@ -10,21 +10,22 @@ import org.json.JSONObject
 class PhoneListenerService : WearableListenerService() {
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
-        val path = messageEvent.path
+        val path = messageEvent.path ?: return
         val jsonMessage = String(messageEvent.data)
-        Log.d(TAG, "Received message on path: $path")
+        Log.d(TAG, "📥 Received message on path: $path")
 
         val json = JSONObject(jsonMessage)
         val batteryUsed = json.optInt("batteryUsed", -1)
 
-        when (path) {
+        when (path.lowercase()) {
             "/multi_sensor"   -> broadcast("com.example.datalayerapi.MULTI_SENSOR_RECEIVED", jsonMessage, batteryUsed)
             "/accelerometer"  -> broadcast("com.example.datalayerapi.ACCELEROMETER_RECEIVED", jsonMessage, batteryUsed)
             "/gyroscope"      -> broadcast("com.example.datalayerapi.GYROSCOPE_RECEIVED", jsonMessage, batteryUsed)
             "/light"          -> broadcast("com.example.datalayerapi.LIGHT_RECEIVED", jsonMessage, batteryUsed)
             "/magnetic"       -> broadcast("com.example.datalayerapi.MAGNETIC_RECEIVED", jsonMessage, batteryUsed)
             "/heartrate"      -> broadcast("com.example.datalayerapi.HEARTRATE_RECEIVED", jsonMessage, batteryUsed)
-            else              -> Log.w(TAG, "Unknown path received: $path")
+            "/gps"            -> broadcast("com.example.datalayerapi.GPS_RECEIVED", jsonMessage, batteryUsed)
+            else              -> Log.w(TAG, "⚠️ Unknown path received: $path")
         }
     }
 
@@ -34,6 +35,7 @@ class PhoneListenerService : WearableListenerService() {
             putExtra("BatteryUsed", batteryUsed)
         }
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
+        Log.d(TAG, "📡 Broadcast sent: $action")
     }
 
     companion object {

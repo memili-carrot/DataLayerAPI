@@ -13,29 +13,52 @@
         android:orientation="vertical"
         android:padding="16dp">
 
+        <!-- 시간 -->
         <TextView
             android:id="@+id/timestampTextView"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/time_label"
+            android:text="Time:"
             android:textSize="12sp" />
 
+        <!-- 단일 값 센서용 -->
+        <TextView
+            android:id="@+id/valueLabelTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:visibility="gone"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <!-- 3축 센서용 -->
         <TextView
             android:id="@+id/xValueTextView"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/x_label" />
+            android:text="X:" />
+
+        <!-- GPS용 -->
+        <TextView
+            android:id="@+id/gpsValueTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Lat: / Lon:"
+            android:visibility="gone"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
 
         <TextView
             android:id="@+id/yValueTextView"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/y_label" />
+            android:text="Y:" />
 
         <TextView
             android:id="@+id/zValueTextView"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/z_label" />
+            android:text="Z:" />
     </LinearLayout>
 </androidx.cardview.widget.CardView>

@@ -39,7 +39,6 @@ class SensorCollector(
             sensorManager.registerListener(this, sensor, sensorDelay)
             isCollecting = true
 
-            // 배터리 수집 시작 시점 측정
             batteryBefore = getBatteryLevel()
             Log.d(TAG, "🔋 시작 배터리: $batteryBefore%")
 
@@ -49,17 +48,22 @@ class SensorCollector(
         }
     }
 
+    fun stop() {
+        sensorManager.unregisterListener(this)
+        isCollecting = false
+        buffer.clear()
+        handler.removeCallbacksAndMessages(null)
+        Log.d(TAG, "🛑 수집 중단: $sensorName")
+    }
+
     private fun stopAndSend() {
         if (isCollecting) {
             sensorManager.unregisterListener(this)
             isCollecting = false
 
-            // 배터리 종료 시점 측정
             batteryAfter = getBatteryLevel()
             Log.d(TAG, "🔋 종료 배터리: $batteryAfter%")
-
-            val batteryUsed = batteryBefore - batteryAfter
-            Log.d(TAG, "📉 사용된 배터리: ${batteryUsed}% ($sensorName)")
+            Log.d(TAG, "📉 사용된 배터리: ${batteryBefore - batteryAfter}% ($sensorName)")
 
             if (buffer.isNotEmpty()) {
                 sendBuffer(buffer.toList())
@@ -83,11 +87,18 @@ class SensorCollector(
                     val jsonArray = JSONArray()
                     dataToSend.forEach { data ->
                         jsonArray.put(JSONObject().apply {
-                            put("x", data.x)
-                            put("y", data.y)
-                            put("z", data.z)
                             put("timestamp", data.timestamp)
                             put("sensor", data.sensorName)
+
+                            if (sensor.type == Sensor.TYPE_LIGHT) {
+                                put("lux", data.x)  // 조도 센서
+                            } else if (sensor.type == Sensor.TYPE_HEART_RATE) {
+                                put("heartrate", data.x)  // 심박수 센서
+                            } else {
+                                put("x", data.x)
+                                put("y", data.y)
+                                put("z", data.z)
+                            }
                         })
                     }
 
@@ -112,10 +123,17 @@ class SensorCollector(
 
     override fun onSensorChanged(event: SensorEvent?) {
         event?.let {
-            val x = it.values.getOrNull(0) ?: 0f
-            val y = it.values.getOrNull(1) ?: 0f
-            val z = it.values.getOrNull(2) ?: 0f
             val timestamp = System.currentTimeMillis()
+
+            val (x, y, z) = if (sensor.type == Sensor.TYPE_LIGHT) {
+                Triple(it.values.getOrNull(0) ?: 0f, 0f, 0f) // lux 값만 저장
+            } else {
+                Triple(
+                    it.values.getOrNull(0) ?: 0f,
+                    it.values.getOrNull(1) ?: 0f,
+                    it.values.getOrNull(2) ?: 0f
+                )
+            }
 
             buffer.add(SensorData(x, y, z, timestamp, sensorName))
 

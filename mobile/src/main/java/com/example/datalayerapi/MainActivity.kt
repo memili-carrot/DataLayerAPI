@@ -38,7 +38,7 @@ class MainActivity : AppCompatActivity() {
     private var phoneStatus: String = "Waiting"
 
     private val delayOptions = listOf("FASTEST", "GAME", "UI", "NORMAL")
-    private val sensorOptions = listOf("Accelerometer", "Gyroscope", "Light", "Magnetic", "HeartRate")
+    private val sensorOptions = listOf("Accelerometer", "Gyroscope", "Light", "Magnetic", "HeartRate", "GPS")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -95,6 +95,7 @@ class MainActivity : AppCompatActivity() {
             addAction("com.example.datalayerapi.LIGHT_RECEIVED")
             addAction("com.example.datalayerapi.MAGNETIC_RECEIVED")
             addAction("com.example.datalayerapi.HEARTRATE_RECEIVED")
+            addAction("com.example.datalayerapi.GPS_RECEIVED")
         }
         LocalBroadcastManager.getInstance(this).registerReceiver(sensorReceiver, filter)
     }
@@ -147,9 +148,7 @@ class MainActivity : AppCompatActivity() {
                             append("Real-time received data\n: ${dataArray.length()}개\n")
                         }
                         sensorNameTextView.text = statusText
-                        if (batteryUsed >= 0) batteryUsageTextView.text = "Battery consumption\n: $batteryUsed%"
-                        else
-                            batteryUsageTextView.text = "Battery usage info not available"
+                        batteryUsageTextView.text = if (batteryUsed >= 0) "Battery consumption\n: $batteryUsed%" else "Battery usage info not available"
                         updatePhoneStatus("Receipt completed\n")
                     }
                 } catch (e: Exception) {
@@ -227,9 +226,20 @@ class MainActivity : AppCompatActivity() {
             val obj = JSONObject().apply {
                 put("timestamp", formatTimestamp(data.timestamp))
                 put("sensor", data.sensor)
-                put("x", data.x)
-                put("y", data.y)
-                put("z", data.z)
+
+                when (data.sensor) {
+                    "Light" -> put("lux", data.x)
+                    "HeartRate" -> put("heartrate", data.x)
+                    "GPS" -> {
+                        put("latitude", data.x)
+                        put("longitude", data.y)
+                    }
+                    else -> {
+                        put("x", data.x)
+                        put("y", data.y)
+                        put("z", data.z)
+                    }
+                }
             }
             jsonArray.put(obj)
         }
